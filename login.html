@@ -9,7 +9,6 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   
   <script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/crypto-js@4.2.0/crypto-js.min.js"></script>
 
   <style>
     :root{
@@ -318,17 +317,11 @@ function saveStats(s){ localStorage.setItem(STATS_KEY, JSON.stringify(s)); }
 
 
 async function sha256hex(str){
-  try{
-    if(window.crypto && window.crypto.subtle){
-      const enc = new TextEncoder();
-      const data = enc.encode(str);
-      const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      return hashArray.map(b=>b.toString(16).padStart(2,'0')).join('');
-    }
-  }catch(err){ /* fallback below */ }
-  const hash = CryptoJS.SHA256(str).toString(CryptoJS.enc.Hex);
-  return hash;
+  const enc = new TextEncoder();
+  const data = enc.encode(str);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b=>b.toString(16).padStart(2,'0')).join('');
 }
 
 
@@ -357,7 +350,7 @@ document.getElementById('issueForm').addEventListener('submit', async function(e
 
   
   const timestamp = new Date().toISOString();
-  const payload = `${name}|${email}|${course}|${date}|${id}|${timestamp}`;
+  const payload = ${name}|${email}|${course}|${date}|${id}|${timestamp};
   const signature = await sha256hex(payload);
 
   const cert = {
@@ -452,7 +445,7 @@ function loadStudent(){
   if(!email){ alert('Enter email'); return; }
   const all = readCertificates().filter(c => c.email === email);
   const container = document.getElementById('studentCertDisplay');
-  if(all.length===0){ container.innerHTML = `<div class="small muted">No certificates found for ${escapeHtml(email)}</div>`; return; }
+  if(all.length===0){ container.innerHTML = <div class="small muted">No certificates found for ${escapeHtml(email)}</div>; return; }
   container.innerHTML = '';
   all.forEach(cert=>{
     const box = document.createElement('div'); box.className='card'; box.style.marginBottom='8px';
@@ -473,16 +466,16 @@ function verifyByID(){
   const res = readCertificates().find(c => c.id === id);
   const out = document.getElementById('verifyResult');
   if(!id){
-    out.innerHTML = `<div class="small muted">Enter certificate ID or scan QR</div>`; return;
+    out.innerHTML = <div class="small muted">Enter certificate ID or scan QR</div>; return;
   }
   if(!res){
-    out.innerHTML = `<div style="color:#a41e34"><strong>Invalid Certificate ID</strong></div>`;
+    out.innerHTML = <div style="color:#a41e34"><strong>Invalid Certificate ID</strong></div>;
     incrementVerification(false);
     return;
   }
  
   (async ()=>{
-    const payload = `${res.name}|${res.email}|${res.course}|${res.date}|${res.id}|${res.timestamp}`;
+    const payload = ${res.name}|${res.email}|${res.course}|${res.date}|${res.id}|${res.timestamp};
     const sig = await sha256hex(payload);
     const ok = sig === res.signature;
     out.innerHTML = `<div style="padding:8px; border-radius:6px; background:${ok? '#ecfdf3':'#fff1f2'}">
@@ -515,7 +508,7 @@ function showCertificateModal(cert){
     <p>ID: ${escapeHtml(cert.id)}</p>
     <p>Issued: ${new Date(cert.timestamp).toLocaleString()}</p>
     <p>Signature: <code style="word-break:break-all">${cert.signature}</code></p>
-    ${cert.fileData ? `<div><img src="${cert.fileData}" alt="uploaded" style="max-width:600px;display:block;margin-top:10px;border:1px solid #eee" /></div>` : '<div class="small muted">No uploaded asset</div>'}
+    ${cert.fileData ? <div><img src="${cert.fileData}" alt="uploaded" style="max-width:600px;display:block;margin-top:10px;border:1px solid #eee" /></div> : '<div class="small muted">No uploaded asset</div>'}
     </body></html>`);
   w.document.close();
 }
@@ -524,14 +517,14 @@ function downloadCertificate(cert){
     
     const a = document.createElement('a');
     a.href = cert.fileData;
-    a.download = `${cert.id}.png`;
+    a.download = ${cert.id}.png;
     document.body.appendChild(a); a.click(); a.remove();
     return;
   }
   
   const blob = new Blob([JSON.stringify(cert, null, 2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href = url; a.download = `${cert.id}.json`; document.body.appendChild(a); a.click(); a.remove();
+  const a = document.createElement('a'); a.href = url; a.download = ${cert.id}.json; document.body.appendChild(a); a.click(); a.remove();
   URL.revokeObjectURL(url);
 }
 
@@ -633,7 +626,7 @@ function clearStorage(){
         name:'Anita Kapoor', email:'anita@example.com', course:'Hackathon Winner 2025', date:new Date().toISOString().slice(0,10),
         id:'DEMO-2025-001', fileData: null, timestamp:new Date().toISOString()
       };
-      demo.signature = await sha256hex(`${demo.name}|${demo.email}|${demo.course}|${demo.date}|${demo.id}|${demo.timestamp}`);
+      demo.signature = await sha256hex(${demo.name}|${demo.email}|${demo.course}|${demo.date}|${demo.id}|${demo.timestamp});
       saveCertificates([demo]);
       updateSampleQR();
       renderList();
