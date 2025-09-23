@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Digital Certificate Verification System — Prototype</title>
+
+  
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  
+  <script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/crypto-js@4.2.0/crypto-js.min.js"></script>
+
+  <style>
+    :root{
+      --bg:hsl(53, 27%, 94%);
+       --card:#ffffff; 
+       --accent:#1abc9c; 
+       --muted:#6b7280; 
+       --dark:#0f1724;
+    }
+    *{
+      box-sizing:border-box
+    }
+    body{
+      font-family:Inter,Segoe UI,Arial;
+      margin:0; background:var(--bg); color:var(--dark);
+      -webkit-font-smoothing:antialiased; 
+      /* background-color:cornsilk */
+    }
+
+    header{
+      background: linear-gradient(90deg,#0c12ab 0%, #03315c 100%);
+      color:white; padding:18px 22px;
+      display:flex; gap:16px; align-items:center; justify-content:space-between;
+      flex-wrap:wrap;
+    }
+    header h1{
+      margin:0; 
+      font-size:25px;
+    }
+    header.subtitle{
+      opacity:.85; 
+      font-size:15px;
+      margin-top: 50px;
+    }
+    nav{
+      display:flex;
+      gap:20px; 
+      align-items:center;
+    }
+    nav button{
+      background:transparent;
+      color:rgb(255, 255, 255); 
+      border:1px solid white;
+      padding:8px 12px; 
+      border-radius:8px; 
+      cursor:pointer; 
+      font-weight:600;
+    }
+    main{
+      padding:18px;
+      max-width:1100px; 
+      margin:18px auto; 
+      display:grid; 
+      grid-template-columns: 1fr 420px; 
+      gap:18px;
+    }
+    .card{
+      background:var(--card); 
+      padding:14px; 
+      border-radius:10px; 
+      box-shadow:5px 5px 15px black;
+    }
+    .panel-title{
+      display:flex; 
+      justify-content:space-between; 
+      align-items:center; 
+      margin-bottom:10px;
+    }
+    h2{
+      margin:0; 
+      font-size:16px;
+    }
+    form input, form select, form textarea {
+      width:100%; 
+      padding:10px; 
+      margin:8px 0; 
+      border-radius:8px; 
+      border:1px solid #e6eef6;
+    }
+    .btn{background:var(--accent); 
+      color:#eceeee; 
+      border:none; 
+      padding:10px 14px;
+       border-radius:8px; 
+       cursor:pointer; 
+       font-weight:700;
+      }
+    .btn.secondary{
+      background:transparent;
+       color:var(--dark); 
+       border:1px solid #e6eef6;
+      }
+    .flex{
+      display:flex; 
+      gap:10px; 
+      align-items:center;
+    }
+    .small{
+      font-size:13px;
+       color:var(--muted);
+      }
+    .cert-list{
+      max-height:420px; 
+      overflow:auto; 
+      padding-top:6px;
+    }
+    .cert-item{
+      border-bottom:1px dashed #eef3f7; 
+      padding:10px 6px; 
+      display:flex; 
+      gap:10px; 
+      align-items:flex-start;
+    }
+    .cert-meta{
+      flex:1
+    }
+    .badge{
+      background:hsl(180, 15%, 94%); 
+      color:#0b4f3a; 
+      padding:6px 8px;
+       border-radius:6px; 
+       font-weight:700; 
+       font-size:12px;
+      }
+    .qr-canvas{
+      width:80px;
+       height:80px; 
+       border-radius:8px;
+        background:white; 
+        display:flex; 
+        align-items:center; 
+        justify-content:center;
+         padding:6px;}
+    .search{
+      display:flex; 
+      gap:8px; 
+      margin-bottom:8px;
+    }
+    input[type=file]{
+      padding:6px 4px;
+    }
+    .muted{
+      color:var(--muted)
+    }
+    footer{
+      max-width:1100px;
+      margin:18px auto;
+       text-align:center; 
+       color:var(--muted); 
+       font-size:13px;
+       /* color: #0f1724; */
+      }
+    @media (max-width:980px){
+      main{grid-template-columns:1fr; padding:12px} .qr-canvas{display:none}}
+  </style>
+</head>
+<body>
+
+  <header>
+    <div>
+      <h1>Digital Certificate Verification System</h1>
+      <div class="subtitle">Prototype — Issuer · Student · Verifier · Dashboard</div>
+    </div>
+    <nav>
+      <button onclick="showRole('issuer')">Issuer</button>
+      <button onclick="showRole('student')">Student</button>
+      <button onclick="showRole('verifier')">Verifier</button>
+      <button onclick="showRole('dashboard')">Dashboard</button>
+    </nav>
+  </header>
+
+  <main>
+    
+    <section id="issuerSection" class="card">
+      <div class="panel-title"><h2>Issuer Module — Issue Certificate</h2><div class="small">Role: Issuer</div></div>
+
+      <form id="issueForm">
+        <label class="small">Student Full Name</label>
+        <input id="i_name" required placeholder="e.g.Mohit Kumar"/>
+
+        <label class="small">Student Email</label>
+        <input id="i_email" required placeholder="student@example.com" type="email" />
+
+        <label class="small">Course / Event</label>
+        <input id="i_course" required placeholder="e.g., Web Development Workshop" />
+
+        <label class="small">Certificate Date</label>
+        <input id="i_date" required type="date" />
+
+        <label class="small">Certificate ID (unique)</label>
+        <input id="i_id" required placeholder="e.g., CERT-2025-00123" />
+
+        <label class="small">Upload Certificate (optional) — PDF/Image</label>
+        <input id="i_file" type="file" accept="image/*,application/pdf" />
+
+        <div style="display:flex; gap:8px; margin-top:8px;">
+          <button class="btn" type="submit">Issue Certificate</button>
+          <button class="btn secondary" type="button" onclick="prefillDemo()">Demo Fill</button>
+        </div>
+        <div id="issueMsg" class="small muted" style="margin-top:8px"></div>
+      </form>
+
+      <hr style="margin:12px 0;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div><strong>Search Certificates</strong></div>
+        <div class="small muted">search by name / id / course</div>
+      </div>
+      <div class="search" style="margin-top:8px;">
+        <input id="searchInput" placeholder="Search..." oninput="renderList()" />
+        <select id="filterSelect" onchange="renderList()">
+          <option value="">All</option>
+          <option value="last7">Issued: Last 7 days</option>
+          <option value="today">Issued: Today</option>
+        </select>
+        <button class="btn secondary" onclick="clearStorage()">Reset</button>
+      </div>
+
+      <div class="cert-list" id="certList"></div>
+    </section>
+
+    
+    <aside>
+      
+      <div id="studentSection" class="card" style="display:none;">
+        <div class="panel-title"><h2>Student Module</h2><div class="small">View your certificates</div></div>
+        <div class="small muted">Enter your email to see certificates issued to you</div>
+        <div style="margin-top:8px">
+          <input id="s_email" placeholder="student@example.com" />
+          <div style="display:flex; gap:8px; margin-top:8px;">
+            <button class="btn" onclick="loadStudent()">View</button>
+            <button class="btn secondary" onclick="document.getElementById('s_email').value=''">Clear</button>
+          </div>
+        </div>
+        <hr>
+        <div id="studentCertDisplay"></div>
+      </div>
+
+      
+      <div id="verifierSection" class="card" style="display:none;">
+        <div class="panel-title"><h2>Verification Module</h2><div class="small">Verifier</div></div>
+        <div class="small muted">Scan QR from screen or enter Certificate ID</div>
+
+        <div style="margin-top:8px">
+          <input id="v_id" placeholder="Enter Certificate ID to verify" />
+          <div style="display:flex; gap:8px; margin-top:8px">
+            <button class="btn" onclick="verifyByID()">Verify</button>
+            <button class="btn secondary" onclick="document.getElementById('v_id').value=''">Clear</button>
+          </div>
+        </div>
+
+        <div id="verifyResult" style="margin-top:12px"></div>
+      </div>
+
+      
+      <div id="dashboardSection" class="card" style="display:none;">
+        <div class="panel-title"><h2>Analytics Dashboard</h2><div class="small">Usage summary</div></div>
+        <div class="small muted">Total certificates issued and verifications</div>
+        <div style="margin-top:12px;">
+          <div style="display:flex; gap:10px; justify-content:space-between; margin-bottom:8px;">
+            <div><strong>Total Issued</strong><div id="statIssued" class="small muted">0</div></div>
+            <div><strong>Total Verifications</strong><div id="statVerified" class="small muted">0</div></div>
+          </div>
+          <canvas id="chartIssued" height="150"></canvas>
+        </div>
+      </div>
+
+      
+      <div class="card" style="margin-top:12px;">
+        <div class="panel-title"><h2>Sample QR</h2><div class="small muted">Each cert has a QR with its ID</div></div>
+        <div style="display:flex; gap:10px; align-items:center;">
+          <div class="qr-canvas"><canvas id="sampleQR"></canvas></div>
+          <div class="small muted">Scan QR with phone camera to test verify flow.</div>
+        </div>
+      </div>
+
+    </aside>
+  </main>
+
+  <footer>
+    Prototype built for Hackathon — Digital Certificate Verification System • Data stored locally (localStorage).
+  </footer>
+
+<script>
+
+const STORAGE_KEY = 'dcvs_certificates_v1';
+const STATS_KEY = 'dcvs_stats_v1';
+
+function readCertificates(){
+  const raw = localStorage.getItem(STORAGE_KEY);
+  return raw ? JSON.parse(raw) : [];
+}
+function saveCertificates(arr){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(arr));
+}
+
+function readStats(){
+  const raw = localStorage.getItem(STATS_KEY);
+  if(!raw) {
+    const o = {verifications:0, verLog:[]};
+    localStorage.setItem(STATS_KEY, JSON.stringify(o));
+    return o;
+  }
+  return JSON.parse(raw);
+}
+function saveStats(s){ localStorage.setItem(STATS_KEY, JSON.stringify(s)); }
+
+
+async function sha256hex(str){
+  try{
+    if(window.crypto && window.crypto.subtle){
+      const enc = new TextEncoder();
+      const data = enc.encode(str);
+      const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b=>b.toString(16).padStart(2,'0')).join('');
+    }
+  }catch(err){ /* fallback below */ }
+  const hash = CryptoJS.SHA256(str).toString(CryptoJS.enc.Hex);
+  return hash;
+}
+
+
+document.getElementById('issueForm').addEventListener('submit', async function(e){
+  e.preventDefault();
+  const name = document.getElementById('i_name').value.trim();
+  const email = document.getElementById('i_email').value.trim().toLowerCase();
+  const course = document.getElementById('i_course').value.trim();
+  const date = document.getElementById('i_date').value;
+  const id = document.getElementById('i_id').value.trim();
+  const fileInput = document.getElementById('i_file');
+
+ 
+  const existing = readCertificates();
+  if(existing.find(c=>c.id === id)){
+    showIssueMsg('Certificate ID already exists. Use unique ID.', true);
+    return;
+  }
+
+  
+  const file = fileInput.files[0];
+  let fileData = null;
+  if(file){
+    fileData = await fileToDataURL(file);
+  }
+
+  
+  const timestamp = new Date().toISOString();
+  const payload = `${name}|${email}|${course}|${date}|${id}|${timestamp}`;
+  const signature = await sha256hex(payload);
+
+  const cert = {
+    name, email, course, date, id, fileData, timestamp, signature
+  };
+
+  existing.unshift(cert); 
+  saveCertificates(existing);
+  renderList();
+  updateStatsUI();
+  showIssueMsg('Certificate issued successfully ✅');
+  this.reset();
+  updateSampleQR();
+});
+
+
+function renderList(){
+  const list = readCertificates();
+  const container = document.getElementById('certList');
+  const q = document.getElementById('searchInput').value.trim().toLowerCase();
+  const filter = document.getElementById('filterSelect').value;
+  const now = new Date();
+
+  let filtered = list.filter(c=>{
+    if(q){
+      return (c.name||'').toLowerCase().includes(q) || (c.id||'').toLowerCase().includes(q) || (c.course||'').toLowerCase().includes(q);
+    }
+    return true;
+  }).filter(c=>{
+    if(filter==='today'){
+      const d = new Date(c.timestamp);
+      return d.toDateString() === now.toDateString();
+    } else if(filter==='last7'){
+      const d = new Date(c.timestamp);
+      const diff = (now - d)/(1000*60*60*24);
+      return diff <= 7;
+    }
+    return true;
+  });
+
+  if(filtered.length===0){
+    container.innerHTML = '<div class="small muted">No certificates found.</div>';
+    return;
+  }
+
+  container.innerHTML = '';
+  filtered.forEach(cert=>{
+    const div = document.createElement('div'); div.className='cert-item';
+    const qrDiv = document.createElement('div');
+    qrDiv.style.width='90px';
+    qrDiv.style.flex='0 0 90px';
+    const canvas = document.createElement('canvas'); canvas.width=80; canvas.height=80;
+    new QRious({element: canvas, value: cert.id, size:80});
+    qrDiv.appendChild(canvas);
+    qrDiv.addEventListener('click', ()=>{ // quick verify by QR click
+      document.getElementById('v_id').value = cert.id;
+      verifyByID();
+      showRole('verifier');
+    });
+
+    const meta = document.createElement('div'); meta.className='cert-meta';
+    meta.innerHTML = `<div style="display:flex; gap:8px; align-items:center;">
+        <div style="font-weight:800">${escapeHtml(cert.name)}</div>
+        <div class="badge">${escapeHtml(cert.id)}</div>
+      </div>
+      <div class="small muted">${escapeHtml(cert.course)} • Issued: ${new Date(cert.timestamp).toLocaleString()}</div>
+      <div style="margin-top:6px;" class="small">Signed: ${cert.signature.slice(0,24)}...</div>
+    `;
+
+    
+    const actions = document.createElement('div');
+    actions.style.flex='0 0 100px';
+    actions.style.display='flex';
+    actions.style.flexDirection='column';
+    actions.style.gap='6px';
+    const viewBtn = document.createElement('button'); viewBtn.className='btn secondary'; viewBtn.innerText='View';
+    viewBtn.onclick = ()=>showCertificateModal(cert);
+
+    const downloadBtn = document.createElement('button'); downloadBtn.className='btn'; downloadBtn.innerText='Download';
+    downloadBtn.onclick = ()=>downloadCertificate(cert);
+
+    actions.appendChild(viewBtn); actions.appendChild(downloadBtn);
+
+    div.appendChild(qrDiv); div.appendChild(meta); div.appendChild(actions);
+    container.appendChild(div);
+  });
+}
+
+
+function loadStudent(){
+  const email = document.getElementById('s_email').value.trim().toLowerCase();
+  if(!email){ alert('Enter email'); return; }
+  const all = readCertificates().filter(c => c.email === email);
+  const container = document.getElementById('studentCertDisplay');
+  if(all.length===0){ container.innerHTML = `<div class="small muted">No certificates found for ${escapeHtml(email)}</div>`; return; }
+  container.innerHTML = '';
+  all.forEach(cert=>{
+    const box = document.createElement('div'); box.className='card'; box.style.marginBottom='8px';
+    box.innerHTML = `<div style="display:flex; justify-content:space-between; align-items:center;">
+        <div><strong>${escapeHtml(cert.course)}</strong><div class="small muted">${escapeHtml(cert.id)} • Issued ${new Date(cert.timestamp).toLocaleString()}</div></div>
+        <div style="text-align:right">
+          <div class="small muted">Signed: ${cert.signature.slice(0,16)}...</div>
+          <button class="btn" style="margin-top:8px" onclick='downloadCertificate(${JSON.stringify(cert).replaceAll("'", "&apos;")})'>Download</button>
+        </div>
+      </div>`;
+    container.appendChild(box);
+  });
+}
+
+ 
+function verifyByID(){
+  const id = document.getElementById('v_id').value.trim();
+  const res = readCertificates().find(c => c.id === id);
+  const out = document.getElementById('verifyResult');
+  if(!id){
+    out.innerHTML = `<div class="small muted">Enter certificate ID or scan QR</div>`; return;
+  }
+  if(!res){
+    out.innerHTML = `<div style="color:#a41e34"><strong>Invalid Certificate ID</strong></div>`;
+    incrementVerification(false);
+    return;
+  }
+ 
+  (async ()=>{
+    const payload = `${res.name}|${res.email}|${res.course}|${res.date}|${res.id}|${res.timestamp}`;
+    const sig = await sha256hex(payload);
+    const ok = sig === res.signature;
+    out.innerHTML = `<div style="padding:8px; border-radius:6px; background:${ok? '#ecfdf3':'#fff1f2'}">
+      <div style="font-weight:800">${escapeHtml(res.name)}</div>
+      <div class="small muted">${escapeHtml(res.course)} • ${escapeHtml(res.id)}</div>
+      <div style="margin-top:8px" class="small">Issued: ${new Date(res.timestamp).toLocaleString()}</div>
+      <div style="margin-top:6px" class="small">Signature: ${res.signature}</div>
+      <div style="margin-top:8px; font-weight:700; color:${ok? '#0b6b3a':'#a41e34'}">${ok? 'VALID Certificate' : 'INVALID Signature'}</div>
+    </div>`;
+    incrementVerification(ok);
+  })();
+}
+
+function incrementVerification(ok){
+  const stats = readStats();
+  stats.verifications = (stats.verifications||0) + 1;
+  stats.verLog = stats.verLog || [];
+  stats.verLog.unshift({ok:!!ok, time: new Date().toISOString()});
+  saveStats(stats);
+  updateStatsUI();
+}
+
+
+function showCertificateModal(cert){
+  
+  const w = window.open('', '_blank', 'width=700,height=600');
+  w.document.write(`<html><head><title>Certificate ${escapeHtml(cert.id)}</title></head><body style="font-family:Arial;padding:20px;">
+    <h2>${escapeHtml(cert.course)}</h2>
+    <p><strong>${escapeHtml(cert.name)}</strong></p>
+    <p>ID: ${escapeHtml(cert.id)}</p>
+    <p>Issued: ${new Date(cert.timestamp).toLocaleString()}</p>
+    <p>Signature: <code style="word-break:break-all">${cert.signature}</code></p>
+    ${cert.fileData ? `<div><img src="${cert.fileData}" alt="uploaded" style="max-width:600px;display:block;margin-top:10px;border:1px solid #eee" /></div>` : '<div class="small muted">No uploaded asset</div>'}
+    </body></html>`);
+  w.document.close();
+}
+function downloadCertificate(cert){
+  if(cert.fileData){
+    
+    const a = document.createElement('a');
+    a.href = cert.fileData;
+    a.download = `${cert.id}.png`;
+    document.body.appendChild(a); a.click(); a.remove();
+    return;
+  }
+  
+  const blob = new Blob([JSON.stringify(cert, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = `${cert.id}.json`; document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+
+
+function fileToDataURL(file){
+  return new Promise((resolve, reject)=>{
+    const fr = new FileReader();
+    fr.onload = ()=>resolve(fr.result);
+    fr.onerror = err=>reject(err);
+    fr.readAsDataURL(file);
+  });
+}
+
+
+function showIssueMsg(msg, isError=false){
+  const el = document.getElementById('issueMsg');
+  el.style.color = isError ? '#a41e34' : '#0b6b3a';
+  el.innerText = msg;
+  setTimeout(()=>el.innerText = '', 3500);
+}
+function escapeHtml(t){ if(!t) return ''; return String(t).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
+
+
+function showRole(role){
+  document.getElementById('issuerSection').style.display = role==='issuer' ? 'block' : 'none';
+  document.getElementById('studentSection').style.display = role==='student' ? 'block' : 'none';
+  document.getElementById('verifierSection').style.display = role==='verifier' ? 'block' : 'none';
+  document.getElementById('dashboardSection').style.display = role==='dashboard' ? 'block' : 'none';
+  
+  if(role === 'dashboard') {
+    renderChart();
+  }
+}
+
+
+let chartInstance = null;
+function updateStatsUI(){
+  const certs = readCertificates();
+  const stats = readStats();
+  document.getElementById('statIssued').innerText = certs.length;
+  document.getElementById('statVerified').innerText = stats.verifications || 0;
+  
+  if(document.getElementById('dashboardSection').style.display !== 'none'){
+    renderChart();
+  }
+}
+
+function renderChart(){
+  const certs = readCertificates();
+  
+  const labels = []; const counts = [];
+  for(let i=13;i>=0;i--){
+    const d = new Date(); d.setDate(d.getDate()-i);
+    labels.push(d.toLocaleDateString());
+    const cnt = certs.filter(c => (new Date(c.timestamp)).toDateString() === d.toDateString()).length;
+    counts.push(cnt);
+  }
+  const ctx = document.getElementById('chartIssued').getContext('2d');
+  if(chartInstance) chartInstance.destroy();
+  chartInstance = new Chart(ctx, {
+    type:'bar',
+    data: { labels, datasets: [{ label:'Certificates issued', data:counts, borderRadius:6 }]},
+    options: { plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}} }
+  });
+}
+
+
+function updateSampleQR(){
+  const c = document.getElementById('sampleQR');
+  const certs = readCertificates();
+  const id = certs.length>0 ? certs[0].id : 'CERT-EXAMPLE-123';
+  new QRious({element:c, value:id, size:100});
+}
+
+
+function prefillDemo(){
+  document.getElementById('i_name').value = 'Rahul Verma';
+  document.getElementById('i_email').value = 'rahul@example.com';
+  document.getElementById('i_course').value = 'AI & ML Workshop';
+  const todayISO = new Date().toISOString().slice(0,10);
+  document.getElementById('i_date').value = todayISO;
+  document.getElementById('i_id').value = 'CERT-2025-00' + Math.floor(Math.random()*900+100);
+}
+function clearStorage(){
+  if(!confirm('This will remove all certificates and stats from localStorage. Continue?')) return;
+  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(STATS_KEY);
+  renderList();
+  updateStatsUI();
+  alert('Storage cleared.');
+}
+
+
+(function init(){
+  
+  if(readCertificates().length === 0){
+    (async()=>{
+      const demo = {
+        name:'Anita Kapoor', email:'anita@example.com', course:'Hackathon Winner 2025', date:new Date().toISOString().slice(0,10),
+        id:'DEMO-2025-001', fileData: null, timestamp:new Date().toISOString()
+      };
+      demo.signature = await sha256hex(`${demo.name}|${demo.email}|${demo.course}|${demo.date}|${demo.id}|${demo.timestamp}`);
+      saveCertificates([demo]);
+      updateSampleQR();
+      renderList();
+      updateStatsUI();
+    })();
+  } else {
+    renderList(); updateSampleQR(); updateStatsUI();
+  }
+
+  showRole('issuer');
+})();
+</script>
+
+</body>
+</html>
